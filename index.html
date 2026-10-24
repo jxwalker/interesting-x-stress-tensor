@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Interesting X · The Hidden Grid: the tensor inside a loaded block</title>
+    <meta name="description" content="Pull a clear plate with a hole and watch rainbow stress bands bloom. Drag a glass probe to read the stress tensor anywhere, turn a cut to see its pull and slide, then turn your axes: every number changes, nothing real does." />
+    <meta name="theme-color" content="#06080e" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='7' y='3' width='18' height='26' rx='2' fill='%23111'/%3E%3Ccircle cx='16' cy='16' r='4' fill='none' stroke='%23ffd36e' stroke-width='2'/%3E%3Cpath d='M9 16h3M20 16h3' stroke='%23ff5ad1' stroke-width='2'/%3E%3Cpath d='M9 12q4 2 3 4M23 12q-4 2-3 4' stroke='%233fd8ff' stroke-width='1.5' fill='none'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage"></div>
+      <svg id="leaders" aria-hidden="true"></svg>
+      <div id="labels" aria-hidden="true"></div>
+
+      <header class="intro" id="intro">
+        <h1>The Hidden Grid</h1>
+        <p class="sub">the tensor inside a loaded block</p>
+        <button class="help" id="btn-help" type="button" aria-controls="explain" aria-expanded="false" aria-label="What am I looking at?"><i aria-hidden="true">?</i><span>What am I looking at?</span></button>
+      </header>
+
+      <div class="badge" id="badge" hidden>simple mode (no WebGL)</div>
+
+      <section class="panel dock" id="dock" aria-label="Controls">
+        <button class="sheet-handle" id="btn-sheet" type="button" aria-controls="dock" aria-expanded="true"><i aria-hidden="true"></i><span id="sheet-label">Hide controls</span></button>
+        <p class="caption" id="caption" aria-live="polite"><i class="dot" aria-hidden="true"></i><span id="caption-text">Rainbow bands show stress. They crowd at the sides of the hole, where the pull is three times stronger.</span></p>
+
+        <div class="ctl main-ctl">
+          <div class="ctl-row"><label class="cap" for="load">Pull harder <span class="tag">grip stress S</span></label><span class="mono val" id="load-val">3.5 MPa</span></div>
+          <input id="load" type="range" min="0" max="6" step="0.05" value="3.5" aria-label="Pull harder: stress applied by the grips, in MPa" />
+        </div>
+        <div class="ctl main-ctl">
+          <div class="ctl-row"><label class="cap" for="cut">Turn the cut <span class="tag">angle φ</span></label><span class="mono val" id="cut-val">30°</span></div>
+          <input id="cut" type="range" min="0" max="180" step="0.5" value="30" aria-label="Turn the cut: angle of the slice through the probe, in degrees" />
+        </div>
+        <div class="ctl main-ctl axes-ctl">
+          <button class="btn run" id="btn-axes" type="button"><span class="led" aria-hidden="true"></span>Turn my axes</button>
+          <div class="axes-slider">
+            <div class="ctl-row"><label class="cap" for="axes">Axes turned <span class="tag">α</span></label><span class="mono val" id="axes-val">0°</span></div>
+            <input id="axes" type="range" min="0" max="180" step="0.5" value="0" aria-label="How far the measuring axes are turned, in degrees" />
+          </div>
+        </div>
+
+        <div class="mini-ro" id="mini-ro" aria-label="At the probe">
+          <span class="mini-grid" title="The stress grid at the probe (the tensor), in MPa"><span class="mini-lbl">Stress grid</span><span class="mat mono"><b id="t-xx">—</b><b id="t-xy">—</b><b id="t-yx">—</b><b id="t-yy">—</b></span></span>
+          <span class="mini-v amber"><span class="mini-lbl">Pull<span class="mini-x"> on cut</span></span><b class="mono" id="m-normal">—</b></span>
+          <span class="mini-v cyan"><span class="mini-lbl">Slide<span class="mini-x"> along cut</span></span><b class="mono" id="m-shear">—</b></span>
+        </div>
+
+        <div class="readouts">
+          <div class="ro amber"><span class="lbl">Pull on this cut <span class="tag">n·t</span></span><span class="mono big" id="r-normal">—</span><span class="desc" id="r-normal-d">Force per mm² straight out of the slice. Negative means squeezed.</span></div>
+          <div class="ro cyan"><span class="lbl">Slide along this cut <span class="tag">τ</span></span><span class="mono big" id="r-shear">—</span><span class="desc">Force per mm² trying to slide one side past the other.</span></div>
+          <div class="ro inv">
+            <span class="lbl"><span class="long">Things that don't change when you turn the axes</span><span class="short">Unchanged when you turn the axes</span></span>
+            <div class="inv-row">
+              <span><em><span class="long">Sum of the diagonal</span><span class="short">Diagonal sum</span></em><b class="mono" id="r-trace">—</b></span>
+              <span><em><span class="long">Biggest pull </span>σ₁</em><b class="mono" id="r-s1">—</b></span>
+              <span><em><span class="long">Smallest </span>σ₂</em><b class="mono" id="r-s2">—</b></span>
+            </div>
+            <span class="desc">They belong to the stress itself, so any set of axes gives the same values.</span>
+          </div>
+          <div class="ro k"><span class="lbl">Stress here ÷ pull at the grips</span><span class="mono big" id="r-here">—</span><span class="desc" id="r-k">At the hole's edge it peaks at ×3.00: the stress concentration factor.</span></div>
+          <div class="ro bands"><span class="lbl">Bands at the hole's edge <span class="tag">fringe order N</span></span><span class="mono big" id="r-fringe">—</span><span class="desc">N = h(σ₁−σ₂)/f<sub>σ</sub>: one more band for every 2.3 MPa of difference.</span></div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-reset" class="btn" type="button" title="Restore the example: 3.5 MPa pull, round hole, probe at the side of the hole, 30° cut, level axes, default view">Reset to example</button>
+          <button id="btn-details" class="btn details-btn" type="button" aria-expanded="false" aria-controls="dock">Details</button>
+          <button id="btn-advanced" class="btn" type="button" aria-expanded="false" aria-controls="adv">Advanced</button>
+        </div>
+      </section>
+
+      <div class="right-col" id="right-col">
+        <aside class="panel adv" id="adv" hidden aria-label="Advanced">
+          <div class="adv-head">
+            <span class="cap">Advanced</span>
+            <button class="x" id="btn-adv-close" type="button" aria-label="Close advanced">×</button>
+          </div>
+          <div class="presets">
+            <span class="cap">Put the probe</span>
+            <div class="chips">
+              <button class="btn chip" id="preset-edge" type="button">At the hole's side</button>
+              <button class="btn chip" id="preset-far" type="button">Far from the hole</button>
+              <button class="btn chip" id="preset-top" type="button">Above the hole</button>
+            </div>
+          </div>
+          <label class="ctl">
+            <span class="ctl-row"><span class="cap">Hole shape</span><span class="mono" id="hole-k">K = 3.00</span></span>
+            <select id="hole" aria-label="Hole shape">
+              <option value="circle">Round hole (Kirsch)</option>
+              <option value="ellipse">Oval hole, 2 : 1 across the pull</option>
+              <option value="slot">Thin slot, like a crack</option>
+            </select>
+          </label>
+          <label class="ctl" id="slot-box">
+            <span class="ctl-row"><span class="cap">Slot sharpness <span class="tag">length ÷ width, a/b</span></span><span class="mono" id="slot-val">6 : 1</span></span>
+            <input id="slot-ratio" type="range" min="3" max="10" step="0.5" value="6" aria-label="Slot sharpness: length divided by width" />
+            <span class="desc" id="slot-d">Tip stress = 1 + 2a/b times the grip pull (Inglis). Used by the slot.</span>
+          </label>
+          <label class="ctl">
+            <span class="cap">How the plate is loaded</span>
+            <select id="loading" aria-label="How the plate is loaded">
+              <option value="pull">Pull (grips up and down)</option>
+              <option value="biaxial">Pull both ways (up-down and sideways)</option>
+              <option value="shear">Twist-like shear</option>
+            </select>
+          </label>
+          <label class="check"><input id="show-mohr" type="checkbox" /><span><span class="cap">Show Mohr's circle</span><span class="desc">Every cut at the probe is a dot on one circle.</span></span></label>
+          <label class="check"><input id="show-isoclinics" type="checkbox" /><span><span class="cap">Show principal lines</span><span class="desc">Crosses on the plate point along the no-slide directions.</span></span></label>
+          <label class="check"><input id="show-ranks" type="checkbox" /><span><span class="cap">Tensor ranks shelf</span><span class="desc">1, 3, 9 and 27 numbers: scalar, vector, matrix, 3-index tensor.</span></span></label>
+          <div class="card-mini">
+            <span class="cap">More invariants at the probe</span>
+            <p class="mono small" id="r-more">—</p>
+            <span class="desc">Solution: exact Kirsch (round hole), Inglis–Muskhelishvili complex potentials (oval, slot); infinite plate, plane stress. Polycarbonate, 3 mm thick, f<sub>σ</sub> = 7 N/mm; hole half-width a = 10 mm.</span>
+          </div>
+        </aside>
+        <section class="panel mohr" id="mohr" hidden aria-label="Mohr's circle">
+          <div class="adv-head"><span class="cap">Mohr's circle at the probe</span></div>
+          <canvas id="mohr-canvas" width="560" height="400" aria-label="Mohr's circle"></canvas>
+          <span class="desc">Across: pull on the cut. Up: slide. Turning the cut by φ walks the dot 2φ round the circle; the ends are σ₁ and σ₂.</span>
+        </section>
+      </div>
+
+      <section class="panel explain-card" id="explain" role="dialog" aria-labelledby="explain-title" hidden>
+        <div class="explain-head">
+          <h2 id="explain-title">The hidden grid inside a stretched block</h2>
+          <button class="x" id="btn-explain-x" type="button" aria-label="Close explanation">×</button>
+        </div>
+        <p><b>What you're looking at:</b> a clear plastic plate with a hole, being pulled by brass grips. Seen through polarising filters, stress shows up as rainbow bands: more bands packed together means more stress.</p>
+        <p><b>Why it matters:</b> the force inside a material depends on which way you slice it. A tensor is the small grid of numbers that captures all of that at once. Engineers use exactly this to find where parts will crack, and the same idea describes spacetime and the data in AI models.</p>
+        <p class="try"><span>How to use it</span></p>
+        <ol class="try-steps">
+          <li>Drag <b>Pull harder</b> and watch the rainbow crowd around the hole.</li>
+          <li>Drag the glass probe anywhere on the plate.</li>
+          <li><b>Turn the cut</b>: the amber arrow is the pull on that slice, the cyan arrow is the slide along it.</li>
+          <li>Press <b>Turn my axes</b>: every number on the card changes, but nothing physical does.</li>
+          <li><b>Reset to example</b> puts everything back.</li>
+        </ol>
+        <div class="explain-foot"><button class="btn primary" id="btn-explain-ok" type="button">Got it</button></div>
+      </section>
+
+      <footer class="credit credit-foot">
+        Inspired by <a href="https://x.com/cosmosarcive/status/2106486950303805880" target="_blank" rel="noopener">@cosmosarcive</a><span class="wide">'s post on tensors ·
+        <a href="https://en.wikipedia.org/wiki/Cauchy_stress_tensor" target="_blank" rel="noopener">Cauchy stress tensor</a> ·
+        <a href="https://en.wikipedia.org/wiki/Photoelasticity" target="_blank" rel="noopener">Photoelasticity</a></span>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
